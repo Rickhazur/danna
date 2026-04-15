@@ -8,9 +8,10 @@ interface QuizViewProps {
   questions: Question[];
   subjectName: string;
   onBack: () => void;
+  onFinish?: (correct: number, total: number) => void;
 }
 
-const QuizView = ({ questions, subjectName, onBack }: QuizViewProps) => {
+const QuizView = ({ questions, subjectName, onBack, onFinish }: QuizViewProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -50,7 +51,6 @@ const QuizView = ({ questions, subjectName, onBack }: QuizViewProps) => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <div className="bg-card border-b border-border px-4 py-3 sticky top-0 z-10">
         <div className="max-w-2xl mx-auto flex items-center justify-between">
           <button onClick={onBack} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
@@ -59,9 +59,7 @@ const QuizView = ({ questions, subjectName, onBack }: QuizViewProps) => {
           </button>
           <div className="text-center">
             <p className="text-sm text-muted-foreground">{subjectName}</p>
-            <p className="text-xs text-muted-foreground">
-              Pregunta {currentIndex + 1} de {questions.length}
-            </p>
+            <p className="text-xs text-muted-foreground">Pregunta {currentIndex + 1} de {questions.length}</p>
           </div>
           <div className="text-right">
             <p className="text-sm font-bold text-primary">{score}/{answered}</p>
@@ -70,23 +68,14 @@ const QuizView = ({ questions, subjectName, onBack }: QuizViewProps) => {
         </div>
       </div>
 
-      {/* Progress bar */}
       <div className="w-full h-1.5 bg-muted">
-        <div
-          className="h-full bg-primary transition-all duration-300"
-          style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
-        />
+        <div className="h-full bg-primary transition-all duration-300" style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }} />
       </div>
 
-      {/* Question */}
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
         <div className="flex items-center gap-2 mb-2">
-          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${badge.class}`}>
-            {badge.text}
-          </span>
-          <span className="text-xs text-muted-foreground px-2.5 py-1 rounded-full bg-muted">
-            {question.topic}
-          </span>
+          <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${badge.class}`}>{badge.text}</span>
+          <span className="text-xs text-muted-foreground px-2.5 py-1 rounded-full bg-muted">{question.topic}</span>
         </div>
 
         <Card className="border-0 shadow-md">
@@ -95,7 +84,6 @@ const QuizView = ({ questions, subjectName, onBack }: QuizViewProps) => {
           </CardContent>
         </Card>
 
-        {/* Options */}
         <div className="space-y-2.5">
           {question.options.map((option) => {
             const isSelected = selectedAnswer === option.label;
@@ -104,39 +92,21 @@ const QuizView = ({ questions, subjectName, onBack }: QuizViewProps) => {
             let bgClass = "bg-card";
 
             if (selectedAnswer) {
-              if (isCorrectOption) {
-                borderClass = "border-green-400";
-                bgClass = "bg-green-50";
-              } else if (isSelected && !isCorrectOption) {
-                borderClass = "border-red-400";
-                bgClass = "bg-red-50";
-              } else {
-                borderClass = "border-border opacity-50";
-              }
+              if (isCorrectOption) { borderClass = "border-green-400"; bgClass = "bg-green-50"; }
+              else if (isSelected) { borderClass = "border-red-400"; bgClass = "bg-red-50"; }
+              else { borderClass = "border-border opacity-50"; }
             }
 
             return (
-              <button
-                key={option.label}
-                onClick={() => handleSelect(option.label)}
-                disabled={!!selectedAnswer}
-                className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 ${borderClass} ${bgClass} ${!selectedAnswer ? "cursor-pointer active:scale-[0.98]" : ""}`}
-              >
+              <button key={option.label} onClick={() => handleSelect(option.label)} disabled={!!selectedAnswer}
+                className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 ${borderClass} ${bgClass} ${!selectedAnswer ? "cursor-pointer active:scale-[0.98]" : ""}`}>
                 <div className="flex items-start gap-3">
                   <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
-                    selectedAnswer && isCorrectOption
-                      ? "bg-green-500 text-white"
-                      : selectedAnswer && isSelected
-                      ? "bg-red-500 text-white"
-                      : "bg-muted text-muted-foreground"
+                    selectedAnswer && isCorrectOption ? "bg-green-500 text-white" :
+                    selectedAnswer && isSelected ? "bg-red-500 text-white" : "bg-muted text-muted-foreground"
                   }`}>
-                    {selectedAnswer && isCorrectOption ? (
-                      <CheckCircle2 size={18} />
-                    ) : selectedAnswer && isSelected ? (
-                      <XCircle size={18} />
-                    ) : (
-                      option.label
-                    )}
+                    {selectedAnswer && isCorrectOption ? <CheckCircle2 size={18} /> :
+                     selectedAnswer && isSelected ? <XCircle size={18} /> : option.label}
                   </span>
                   <span className="text-foreground pt-1">{option.text}</span>
                 </div>
@@ -145,7 +115,6 @@ const QuizView = ({ questions, subjectName, onBack }: QuizViewProps) => {
           })}
         </div>
 
-        {/* Explanation */}
         {showExplanation && (
           <Card className={`border-2 ${isCorrect ? "border-green-300 bg-green-50" : "border-amber-300 bg-amber-50"} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
             <CardContent className="p-5">
@@ -156,13 +125,15 @@ const QuizView = ({ questions, subjectName, onBack }: QuizViewProps) => {
                     {isCorrect ? "¡Muy bien! 🎉" : "No te preocupes, así se aprende 💪"}
                   </p>
                   <p className="text-foreground text-sm leading-relaxed">{question.explanation}</p>
+                  {question.tip && (
+                    <p className="text-sm mt-2 p-2 rounded-lg bg-primary/10 text-primary font-semibold">{question.tip}</p>
+                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Next button */}
         {selectedAnswer && currentIndex < questions.length - 1 && (
           <Button onClick={handleNext} className="w-full h-12 text-base font-bold gap-2" size="lg">
             Siguiente pregunta <ArrowRight size={18} />
@@ -172,21 +143,16 @@ const QuizView = ({ questions, subjectName, onBack }: QuizViewProps) => {
         {selectedAnswer && currentIndex === questions.length - 1 && (
           <Card className="border-2 border-primary bg-primary/5">
             <CardContent className="p-6 text-center">
-              <p className="text-2xl font-bold text-primary mb-2">
-                🏆 ¡Práctica completada!
-              </p>
+              <p className="text-2xl font-bold text-primary mb-2">🏆 ¡Práctica completada!</p>
               <p className="text-foreground text-lg">
-                Obtuviste <span className="font-bold text-primary">{score}</span> de{" "}
-                <span className="font-bold">{questions.length}</span> respuestas correctas
+                Obtuviste <span className="font-bold text-primary">{score}</span> de <span className="font-bold">{questions.length}</span> correctas
               </p>
               <p className="text-muted-foreground mt-1 text-sm">
-                {score === questions.length
-                  ? "¡Perfecto! Estás lista para el ICFES 🌟"
-                  : score >= questions.length * 0.7
-                  ? "¡Muy bien! Sigue practicando 💪"
-                  : "Repasa los temas y vuelve a intentarlo 📚"}
+                {score === questions.length ? "¡Perfecto! Estás lista para el ICFES 🌟" :
+                 score >= questions.length * 0.7 ? "¡Muy bien! Sigue practicando 💪" :
+                 "Repasa los temas y vuelve a intentarlo 📚"}
               </p>
-              <Button onClick={onBack} className="mt-4" variant="outline">
+              <Button onClick={() => { if (onFinish) onFinish(score, questions.length); onBack(); }} className="mt-4" variant="outline">
                 Volver a materias
               </Button>
             </CardContent>

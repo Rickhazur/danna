@@ -3,27 +3,25 @@ import { Button } from "@/components/ui/button";
 import SubjectCard from "@/components/SubjectCard";
 import QuizView from "@/components/QuizView";
 import TutorChat from "@/components/TutorChat";
-import { subjects, sampleQuestions } from "@/data/questions";
-import { GraduationCap, MessageCircle, BookOpen } from "lucide-react";
+import ExamSimulation from "@/components/ExamSimulation";
+import Dashboard from "@/components/Dashboard";
+import { subjects, allQuestions, getQuestionsBySubject } from "@/data/questions";
+import { useProgress } from "@/hooks/useProgress";
+import { GraduationCap, MessageCircle, BookOpen, Timer, Moon, Sun } from "lucide-react";
 
-type View = "home" | "quiz" | "chat";
+type View = "home" | "quiz" | "chat" | "exam";
 
 const Index = () => {
   const [view, setView] = useState<View>("home");
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [darkMode, setDarkMode] = useState(false);
+  const { getSubjectProgress, recordQuizResult, recordExamResult } = useProgress();
 
   const subject = subjects.find((s) => s.id === selectedSubject);
 
-  const handleSubjectClick = (subjectId: string) => {
-    setSelectedSubject(subjectId);
-  };
-
-  const handleStartQuiz = () => {
-    if (selectedSubject) setView("quiz");
-  };
-
-  const handleStartChat = () => {
-    if (selectedSubject) setView("chat");
+  const toggleDark = () => {
+    setDarkMode(!darkMode);
+    document.documentElement.classList.toggle("dark");
   };
 
   const handleBack = () => {
@@ -32,8 +30,30 @@ const Index = () => {
   };
 
   if (view === "quiz" && subject) {
-    const questions = sampleQuestions.filter((q) => q.subject === selectedSubject);
-    return <QuizView questions={questions} subjectName={subject.name} onBack={handleBack} />;
+    const questions = getQuestionsBySubject(selectedSubject!);
+    return (
+      <QuizView
+        questions={questions}
+        subjectName={subject.name}
+        onBack={() => {
+          handleBack();
+        }}
+        onFinish={(c, t) => recordQuizResult(selectedSubject!, c, t)}
+      />
+    );
+  }
+
+  if (view === "exam" && subject) {
+    const questions = getQuestionsBySubject(selectedSubject!).sort(() => Math.random() - 0.5).slice(0, 10);
+    return (
+      <ExamSimulation
+        questions={questions}
+        subjectName={subject.name}
+        timeMinutes={15}
+        onBack={handleBack}
+        onFinish={(c, t) => recordExamResult(selectedSubject!, c, t)}
+      />
+    );
   }
 
   if (view === "chat" && subject) {
@@ -44,41 +64,23 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="bg-primary text-primary-foreground px-4 py-6 pb-10">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center gap-3 mb-3">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <GraduationCap size={32} />
             <div>
               <h1 className="text-xl font-extrabold">Valida tu Bachillerato</h1>
-              <p className="text-primary-foreground/80 text-sm">Tu preparación para el ICFES 🇨🇴</p>
+              <p className="text-primary-foreground/80 text-sm">Tu preparación ICFES 🇨🇴</p>
             </div>
           </div>
+          <button onClick={toggleDark} className="p-2 rounded-full bg-primary-foreground/10 hover:bg-primary-foreground/20 transition-colors">
+            {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 -mt-6 pb-8 space-y-6">
-        {/* Motivation card */}
-        <div className="bg-card rounded-2xl p-5 shadow-md border border-border">
-          <p className="text-foreground font-bold text-base">¡Hola! 👋</p>
-          <p className="text-muted-foreground text-sm mt-1">
-            Cada día que estudias te acerca más a tu diploma. ¡Tú puedes lograrlo! 💪
-          </p>
-          <div className="flex gap-2 mt-3">
-            <div className="bg-primary/10 rounded-xl px-3 py-2 text-center flex-1">
-              <p className="text-lg font-bold text-primary">5</p>
-              <p className="text-xs text-muted-foreground">Materias</p>
-            </div>
-            <div className="bg-secondary/30 rounded-xl px-3 py-2 text-center flex-1">
-              <p className="text-lg font-bold text-secondary-foreground">
-                {sampleQuestions.length}
-              </p>
-              <p className="text-xs text-muted-foreground">Preguntas</p>
-            </div>
-            <div className="bg-accent/10 rounded-xl px-3 py-2 text-center flex-1">
-              <p className="text-lg font-bold text-accent">∞</p>
-              <p className="text-xs text-muted-foreground">Apoyo</p>
-            </div>
-          </div>
-        </div>
+        {/* Dashboard */}
+        <Dashboard />
 
         {/* Subject selection modal */}
         {selectedSubject && subject && (
@@ -87,21 +89,21 @@ const Index = () => {
               <span className="text-3xl">{subject.icon}</span>
               <div>
                 <h2 className="font-bold text-foreground text-lg">{subject.name}</h2>
-                <p className="text-muted-foreground text-sm">{subject.description}</p>
+                <p className="text-muted-foreground text-sm">{getQuestionsBySubject(subject.id).length} preguntas disponibles</p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Button onClick={handleStartQuiz} className="flex-1 gap-2 h-11 font-bold">
-                <BookOpen size={18} /> Practicar
+            <div className="grid grid-cols-3 gap-2">
+              <Button onClick={() => setView("quiz")} className="gap-1.5 h-11 font-bold text-sm">
+                <BookOpen size={16} /> Practicar
               </Button>
-              <Button onClick={handleStartChat} variant="outline" className="flex-1 gap-2 h-11 font-bold">
-                <MessageCircle size={18} /> Tutor Chat
+              <Button onClick={() => setView("exam")} variant="secondary" className="gap-1.5 h-11 font-bold text-sm">
+                <Timer size={16} /> Simulacro
+              </Button>
+              <Button onClick={() => setView("chat")} variant="outline" className="gap-1.5 h-11 font-bold text-sm">
+                <MessageCircle size={16} /> Tutor
               </Button>
             </div>
-            <button
-              onClick={() => setSelectedSubject(null)}
-              className="w-full text-center text-sm text-muted-foreground mt-3 hover:text-foreground transition-colors"
-            >
+            <button onClick={() => setSelectedSubject(null)} className="w-full text-center text-sm text-muted-foreground mt-3 hover:text-foreground">
               Cancelar
             </button>
           </div>
@@ -111,28 +113,29 @@ const Index = () => {
         <div>
           <h2 className="font-bold text-foreground text-lg mb-3">📚 Materias</h2>
           <div className="space-y-3">
-            {subjects.map((s) => (
-              <SubjectCard
-                key={s.id}
-                name={s.name}
-                icon={s.icon}
-                description={s.description}
-                color={s.color}
-                progress={Math.floor(Math.random() * 30)}
-                onClick={() => handleSubjectClick(s.id)}
-              />
-            ))}
+            {subjects.map((s) => {
+              const sp = getSubjectProgress(s.id);
+              const totalQ = allQuestions.filter((q) => q.subject === s.id).length;
+              const pct = totalQ > 0 ? Math.min(Math.round((sp.questionsAnswered / totalQ) * 100), 100) : 0;
+              return (
+                <SubjectCard
+                  key={s.id}
+                  name={s.name}
+                  icon={s.icon}
+                  description={s.description}
+                  color={s.color}
+                  progress={pct}
+                  onClick={() => setSelectedSubject(s.id)}
+                />
+              );
+            })}
           </div>
         </div>
 
-        {/* Info section */}
-        <div className="bg-muted rounded-2xl p-5">
-          <h3 className="font-bold text-foreground mb-2">📋 ¿Qué es la validación del bachillerato?</h3>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            Es un examen del ICFES que permite obtener el título de bachiller a personas que no terminaron
-            sus estudios de secundaria. Se presenta el examen <strong>Saber 11 Validantes</strong> y
-            al aprobarlo recibes tu diploma oficial. ¡No necesitas volver al colegio!
-          </p>
+        {/* Total questions info */}
+        <div className="bg-muted rounded-2xl p-5 text-center">
+          <p className="text-2xl font-extrabold text-foreground">{allQuestions.length}</p>
+          <p className="text-sm text-muted-foreground">preguntas tipo ICFES con explicaciones y trucos</p>
         </div>
       </div>
     </div>
