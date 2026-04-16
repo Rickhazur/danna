@@ -8,8 +8,11 @@ if (!apiKey) {
 
 export const genAI = new GoogleGenerativeAI(apiKey || "");
 
-export const getGeminiModel = (modelName: string = "gemini-1.5-flash") => {
-  return genAI.getGenerativeModel({ model: modelName });
+export const getGeminiModel = (modelName: string = "gemini-1.5-flash", systemInstruction?: string) => {
+  return genAI.getGenerativeModel({ 
+    model: modelName,
+    ...(systemInstruction ? { systemInstruction } : {})
+  });
 };
 
 // DeepSeek Key from environment
@@ -61,20 +64,23 @@ export function fileToGenerativePart(base64Data: string, mimeType: string) {
 
 // Function to handle chat history properly, including optional images
 export async function generateChatResponse(messages: {role: "tutor" | "student" | "system", content: string, image?: string}[]) {
-  const geminiMessages = messages.map(msg => {
+  const systemMsg = messages.find(m => m.role === 'system');
+  const chatMessages = messages.filter(m => m.role !== 'system');
+
+  const geminiMessages = chatMessages.map(msg => {
     const parts: any[] = [{ text: msg.content }];
     // If the message has an image, append the generative part object
     if (msg.image) {
       parts.push(fileToGenerativePart(msg.image, "image/jpeg")); // default to jpeg for simplicity or extract from dataURL
     }
     return {
-      role: msg.role === 'tutor' || msg.role === 'system' ? 'model' : 'user',
+      role: msg.role === 'tutor' ? 'model' : 'user',
       parts
     };
   });
 
   try {
-    const model = getGeminiModel("gemini-1.5-flash"); // Flash explicitly supports multimodal inputs natively
+    const model = getGeminiModel("gemini-1.5-flash", systemMsg?.content); 
     
     // Si el último mensaje tiene imagen, el API de chat a veces molesta con el historial si hay imágenes intercaladas.
     // Para simplificar y asegurar compatibilidad multimodal: 
