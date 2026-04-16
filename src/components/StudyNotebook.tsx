@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { generateText } from "@/lib/gemini";
-import { Book, Save, Plus, Trash2, CheckCircle2, Wand2, Lightbulb, Sparkles, Timer, Headphones } from "lucide-react";
+import { Book, Save, Plus, Trash2, CheckCircle2, Wand2, Lightbulb, Sparkles, Timer, Headphones, ArrowLeft } from "lucide-react";
 
 interface Note {
   id: string;
@@ -19,29 +19,16 @@ interface StudyNotebookProps {
 
 const StudyNotebook = ({ topic, onBack }: StudyNotebookProps) => {
   const [notes, setNotes] = useState<Note[]>([]);
+  const [gameItems, setGameItems] = useState<{id: string, text: string, category: string, currentCategory?: string}[]>([]);
+  const [gameFeedback, setGameFeedback] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [userNote, setUserNote] = useState("");
   const [mastery, setMastery] = useState(0);
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
   const [isChallengeMode, setIsChallengeMode] = useState(false);
-
-  useEffect(() => {
-    generateNotebookContent();
-  }, [topic]);
-
-  useEffect(() => {
-    const totalElements = notes.length + gameItems.length;
-    if (totalElements > 0) {
-      const completedNotes = notes.filter(n => n.isCompleted).length;
-      const completedGames = gameItems.filter(i => i.currentCategory === i.category).length;
-      setMastery(Math.round(((completedNotes + completedGames) / totalElements) * 100));
-    }
-  }, [notes, gameItems]);
-
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
-    // Load saved data if exists
     const savedData = localStorage.getItem(`notebook_${topic}`);
     if (savedData) {
       try {
@@ -58,36 +45,30 @@ const StudyNotebook = ({ topic, onBack }: StudyNotebookProps) => {
     }
   }, [topic]);
 
+  useEffect(() => {
+    const totalElements = notes.length + gameItems.length;
+    if (totalElements > 0) {
+      const completedNotes = notes.filter(n => n.isCompleted).length;
+      const completedGames = gameItems.filter(i => i.currentCategory === i.category).length;
+      setMastery(Math.round(((completedNotes + completedGames) / totalElements) * 100));
+    }
+  }, [notes, gameItems]);
+
   const saveNotebook = () => {
-    const data = {
-      notes,
-      game: gameItems,
-      mastery
-    };
+    const data = { notes, game: gameItems, mastery };
     localStorage.setItem(`notebook_${topic}`, JSON.stringify(data));
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
   };
 
   const generateNotebookContent = async () => {
-    // ... rest of the logic remains same but I'll update it to be cleaner
     setIsLoading(true);
     try {
-      const prompt = `Actúa como un experto en Neurociencia y Gamificación. Crea un Laboratorio de Aprendizaje para el tema ESPECÍFICO: "${topic}".
-      
-      PARTE 1: 3 Flashcards (conceptos clave).
-      PARTE 2: Un MINIJUEGO de clasificación. Genera 4 términos y sus categorías correctas (ej: "Leyes de Newton" -> "Física").
-      
-      IMPORTANTE: Devuelve ÚNICAMENTE un arreglo JSON con este formato:
+      const prompt = `Actúa como un experto en Neurociencia. Crea 3 flashcards y un minijuego de clasificación (4 términos y sus categorías) para el tema: "${topic}".
+      Devuelve ÚNICAMENTE un JSON así:
       {
-        "notes": [
-          {"type": "concept", "title": "...", "content": "..."},
-          {"type": "tip", "title": "...", "content": "..."}
-        ],
-        "game": [
-          {"id": "g1", "text": "Término 1", "category": "Categoría A"},
-          {"id": "g2", "text": "Término 2", "category": "Categoría B"}
-        ]
+        "notes": [{"type": "concept", "title": "...", "content": "..."}, ...],
+        "game": [{"id": "g1", "text": "...", "category": "Categoría A"}, ...]
       }`;
 
       const response = await generateText(prompt);
@@ -95,15 +76,14 @@ const StudyNotebook = ({ topic, onBack }: StudyNotebookProps) => {
       const data = match ? JSON.parse(match[0]) : JSON.parse(response);
 
       setNotes(data.notes.map((item: any, idx: number) => ({
-        id: `auto-${idx}`,
+        id: `auto-${idx}-${Date.now()}`,
         ...item,
         isCompleted: false
       })));
-
       setGameItems(data.game.map((item: any) => ({ ...item, currentCategory: undefined })));
     } catch (error) {
       console.error(error);
-      setNotes([{ id: 'fb', type: 'tip', title: 'Generando...', content: 'Estamos personalizando tu cuaderno sobre ' + topic, isCompleted: false }]);
+      setNotes([{ id: 'fb', type: 'tip', title: 'Nota de ayuda', content: 'Repasa los conceptos básicos de ' + topic, isCompleted: false }]);
     } finally {
       setIsLoading(false);
     }
@@ -112,153 +92,151 @@ const StudyNotebook = ({ topic, onBack }: StudyNotebookProps) => {
   const handleCategorySelect = (id: string, category: string) => {
     const newItems = gameItems.map(item => item.id === id ? { ...item, currentCategory: category } : item);
     setGameItems(newItems);
-    
     const item = newItems.find(i => i.id === id);
     if (item && item.category === category) {
-      setGameFeedback("¡Excelente! " + item.text + " pertenece a " + category);
+      setGameFeedback("¡Excelente! Es correcto.");
     } else {
-      setGameFeedback("Ups, revisa de nuevo este concepto.");
+      setGameFeedback("Ups, intenta otra categoría.");
     }
   };
 
+  const toggleNote = (id: string) => {
+    setNotes(notes.map(n => n.id === id ? { ...n, isCompleted: !n.isCompleted } : n));
+  };
+
+  const toggleReveal = (id: string) => {
+    const next = new Set(revealedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setRevealedIds(next);
+  };
+
   return (
-    <div className="min-h-screen bg-[#0f172a] text-slate-100 p-4 md:p-8 font-sans selection:bg-primary/30 pb-20">
+    <div className="min-h-screen bg-[#0f172a] text-slate-100 p-4 md:p-8 font-sans pb-20 overflow-y-auto">
       <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-700">
         
-        {/* Toast Notif */}
         {isSaved && (
-          <div className="fixed top-8 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-3 rounded-2xl shadow-2xl font-black flex items-center gap-2 animate-in slide-in-from-top-10">
-            <CheckCircle2 size={20} /> ¡CUADERNO GUARDADO!
+          <div className="fixed top-8 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-6 py-3 rounded-2xl shadow-2xl font-black animate-in slide-in-from-top-10">
+            ¡GUARDADO!
           </div>
         )}
 
-        {/* Header content ... (keeping the same UI) */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-slate-800/50 p-6 rounded-[2rem] border border-slate-700 shadow-2xl backdrop-blur-md">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-slate-800/50 p-6 rounded-[2rem] border border-slate-700 shadow-2xl">
           <div className="flex items-center gap-4">
-             <div className="w-16 h-16 bg-gradient-to-br from-primary to-accent rounded-2xl flex items-center justify-center shadow-lg shadow-primary/20 rotate-3 transition-transform hover:rotate-0">
-                <Sparkles className="text-white" size={32} />
+             <Button variant="ghost" size="icon" onClick={onBack} className="text-white hover:bg-white/10 shrink-0">
+                <ArrowLeft size={24} />
+             </Button>
+             <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center shadow-lg rotate-3">
+                <Sparkles className="text-white" size={24} />
              </div>
              <div>
-               <h1 className="text-3xl font-black tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">{topic}</h1>
+               <h1 className="text-2xl font-black">{topic}</h1>
                <div className="flex items-center gap-2 mt-1">
-                 <div className="h-2 w-32 bg-slate-700 rounded-full overflow-hidden">
-                   <div className="h-full bg-primary transition-all duration-1000 shadow-[0_0_8px_rgba(59,130,246,0.6)]" style={{ width: `${mastery}%` }} />
+                 <div className="h-1.5 w-24 bg-slate-700 rounded-full overflow-hidden">
+                   <div className="h-full bg-primary" style={{ width: `${mastery}%` }} />
                  </div>
-                 <span className="text-[10px] font-bold text-primary tracking-widest">{mastery}% MAESTRÍA</span>
+                 <span className="text-[10px] font-bold text-primary">{mastery}% MAESTRÍA</span>
                </div>
              </div>
           </div>
           <div className="flex gap-2">
-             <Button variant="secondary" className="rounded-xl font-bold gap-2 shadow-lg shadow-white/5 active:scale-95 transition-transform" onClick={() => setIsChallengeMode(!isChallengeMode)}>
+             <Button variant="secondary" className="rounded-xl font-bold" onClick={() => setIsChallengeMode(!isChallengeMode)}>
                 <Timer size={18} /> {isChallengeMode ? "Laboratorio" : "Modo Reto"}
              </Button>
-             <Button variant="ghost" className="rounded-xl text-slate-400 hover:text-white hover:bg-white/5" onClick={onBack}>Cerrar</Button>
+             <Button className="rounded-xl font-bold bg-green-600 hover:bg-green-700" onClick={saveNotebook}>
+                <Save size={18} /> Guardar
+             </Button>
           </div>
         </div>
 
-        {/* Minijuego section ... */}
+        {/* Minijuego */}
         {!isLoading && gameItems.length > 0 && (
-          <div className="bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-[2.5rem] p-8 border border-white/5 shadow-inner">
-             <div className="flex items-center gap-3 mb-6">
-                <div className="p-2 bg-yellow-500/10 text-yellow-400 rounded-lg">
-                   <Wand2 size={24} />
-                </div>
-                <div>
-                   <h2 className="text-xl font-black">Laboratorio de Clasificación</h2>
-                   <p className="text-xs text-slate-400">Selecciona dónde encaja cada concepto para ganar mastroia.</p>
-                </div>
-             </div>
-
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-3">
+          <div className="bg-slate-800/80 rounded-[2.5rem] p-6 border border-white/5">
+             <h2 className="text-xl font-black mb-4 px-2">Laboratorio de Clasificación 🧪</h2>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
                    {gameItems.map((item) => (
-                      <div key={item.id} className="p-4 bg-slate-800 rounded-2xl border border-slate-700 hover:border-primary/50 transition-all flex justify-between items-center group">
-                         <span className="text-sm font-bold">{item.text}</span>
-                         <div className="flex gap-1">
+                      <div key={item.id} className="p-3 bg-slate-900/50 rounded-xl border border-slate-700 flex justify-between items-center">
+                         <span className="text-sm font-bold pr-2">{item.text}</span>
+                         <div className="flex gap-1 flex-wrap justify-end">
                             {Array.from(new Set(gameItems.map(i => i.category))).map(cat => (
                                <button 
                                   key={cat}
                                   onClick={() => handleCategorySelect(item.id, cat)}
-                                  className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all ${
+                                  className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase transition-all ${
                                     item.currentCategory === cat 
-                                    ? (item.category === cat ? 'bg-green-500 text-white shadow-[0_0_10px_rgba(34,197,94,0.4)]' : 'bg-red-500 text-white shadow-[0_0_10px_rgba(239,68,68,0.4)]')
-                                    : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                                    ? (item.category === cat ? 'bg-green-600' : 'bg-red-600')
+                                    : 'bg-slate-700 text-slate-400'
                                   }`}
                                >
                                   {cat}
-                               </button>
+                                </button>
                             ))}
                          </div>
                       </div>
                    ))}
                 </div>
-                <div className="flex flex-col items-center justify-center p-6 bg-slate-950/50 rounded-3xl border border-dashed border-slate-800">
-                    <p className="text-sm font-mono text-center text-primary/80 animate-pulse">{gameFeedback || "Clasifica los términos para subir tu % de maestría..."}</p>
-                    <Book className="mt-4 opacity-10" size={60} />
+                <div className="flex items-center justify-center p-4 bg-slate-950/30 rounded-2xl border border-dashed border-slate-700">
+                    <p className="text-xs font-mono text-center text-primary/80">{gameFeedback || "Clasifica los términos..."}</p>
                 </div>
              </div>
           </div>
         )}
 
-        {/* Learning Lab Grid ... */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Notes Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {isLoading ? (
-            Array(3).fill(0).map((_, i) => <div key={i} className="h-48 bg-slate-800 animate-pulse rounded-[2rem]" />)
+            Array(3).fill(0).map((_, i) => <div key={i} className="h-40 bg-slate-800 animate-pulse rounded-[2rem]" />)
           ) : (
             notes.map((note) => (
               <div 
                 key={note.id}
                 onClick={() => isChallengeMode && toggleReveal(note.id)}
-                className={`group relative overflow-hidden p-6 rounded-[2rem] border-2 transition-all duration-500 cursor-pointer flex flex-col ${
-                  note.isCompleted ? 'border-green-500/30 bg-green-500/5' : 
-                  isChallengeMode ? 'border-primary/50 bg-slate-800/80 hover:scale-[1.02]' : 'border-slate-700 bg-slate-800/40 hover:border-slate-600'
+                className={`group p-6 rounded-[2rem] border-2 transition-all cursor-pointer flex flex-col ${
+                  note.isCompleted ? 'border-green-500/30 bg-green-950/10' : 
+                  isChallengeMode ? 'border-primary/50 bg-slate-800' : 'border-slate-700 bg-slate-800/40'
                 }`}
               >
-                <div className={`mb-4 inline-flex items-center gap-2 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${
-                  note.type === 'concept' ? 'bg-blue-500/20 text-blue-400' :
-                  note.type === 'tip' ? 'bg-orange-500/20 text-orange-400' : 'bg-purple-500/20 text-purple-400'
-                }`}>
-                  {note.type === 'concept' ? <Book size={10} /> : <Lightbulb size={10} />}
-                  {note.type}
+                <div className="flex justify-between items-start mb-2">
+                  <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-white/10">{note.type}</span>
+                  {note.isCompleted && <CheckCircle2 className="text-green-500" size={16} />}
                 </div>
-
-                <h3 className="text-lg font-bold mb-3 leading-snug">{note.title}</h3>
-                <div className="flex-1 relative min-h-[60px]">
+                <h3 className="text-lg font-bold mb-2">{note.title}</h3>
+                <div className="flex-1">
                   {isChallengeMode && !revealedIds.has(note.id) ? (
-                    <div className="absolute inset-0 bg-slate-700/50 backdrop-blur-md rounded-xl flex items-center justify-center text-[10px] font-bold text-slate-400 uppercase tracking-widest border border-slate-600 border-dashed">
-                      Toca para revelar
-                    </div>
+                    <div className="h-20 bg-slate-900/50 rounded-xl flex items-center justify-center text-[10px] border border-dashed border-slate-700">Toca para revelar</div>
                   ) : (
-                    <p className="text-sm text-slate-400 leading-relaxed font-medium">
-                      {note.content}
-                    </p>
+                    <p className="text-sm text-slate-400 leading-relaxed">{note.content}</p>
                   )}
                 </div>
-
-                <div className="mt-6 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-                   <button 
-                    onClick={(e) => { e.stopPropagation(); toggleNote(note.id); }}
-                    className={`flex items-center gap-2 text-[10px] font-bold p-2 rounded-lg transition-colors ${note.isCompleted ? 'text-green-400' : 'text-slate-500 hover:text-white'}`}
-                   >
-                     <CheckCircle2 size={14} /> {note.isCompleted ? "Dominado" : "Lo aprendí"}
-                   </button>
-                   <button className="text-[10px] font-bold text-slate-500 hover:text-primary transition-colors flex items-center gap-1">
-                     ¿Por qué? <Wand2 size={12} />
-                   </button>
-                </div>
-
-                {note.isCompleted && <div className="absolute -bottom-1 left-0 right-0 h-1 bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.5)]" />}
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={(e) => { e.stopPropagation(); toggleNote(note.id); }}
+                  className={`mt-4 w-full rounded-xl text-[10px] font-black ${note.isCompleted ? 'text-green-400' : 'text-slate-400'}`}
+                >
+                  {note.isCompleted ? "DOMINADO" : "MARCAR APRENDIDO"}
+                </Button>
               </div>
             ))
           )}
-        </div>
 
-        {/* Quick Tools */}
-        <div className="flex flex-wrap justify-center gap-4 py-8">
-           <div className="bg-slate-800/50 p-1 rounded-2xl border border-slate-700 flex gap-1">
-              <Button onClick={saveNotebook} className="bg-primary hover:bg-primary/80 text-white rounded-xl h-10 px-6 font-black text-xs shadow-lg shadow-primary/20 active:scale-95 transition-transform"><Save size={14} className="mr-2" /> Guardar Todo</Button>
-              <Button onClick={onBack} variant="ghost" className="rounded-xl h-10 px-6 font-bold text-xs text-slate-400 hover:text-white active:scale-95 transition-all"><Headphones size={14} className="mr-2" /> Volver a Escuchar</Button>
-           </div>
+          {/* User Note */}
+          <div className="md:col-span-2 lg:col-span-1 bg-slate-800/40 rounded-[2rem] p-6 border border-slate-700/50 flex flex-col gap-3">
+            <h3 className="font-bold flex items-center gap-2 px-1"><Plus size={16} /> Nota Personal</h3>
+            <textarea 
+              value={userNote}
+              onChange={(e) => setUserNote(e.target.value)}
+              placeholder="Escribe algo..."
+              className="flex-1 bg-slate-900/50 border border-slate-700 rounded-xl p-3 text-xs outline-none focus:ring-1 focus:ring-primary min-h-[80px]"
+            />
+            <Button size="sm" onClick={() => {
+              if(!userNote.trim()) return;
+              setNotes([{ id: Date.now().toString(), type: 'user', title: 'Mi Nota', content: userNote, isCompleted: false }, ...notes]);
+              setUserNote("");
+            }} className="rounded-xl font-bold">Añadir</Button>
+          </div>
         </div>
       </div>
     </div>

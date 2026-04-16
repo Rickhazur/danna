@@ -204,8 +204,17 @@ IMPORTANTE: Devuelve ÚNICAMENTE un arreglo JSON válido como este:
 
     utterance.onend = () => {
       if (isPlaying) {
-        speakLine(index + 1);
+        // Add a small delay for more natural conversation
+        setTimeout(() => {
+          if (isPlaying) speakLine(index + 1);
+        }, 600);
       }
+    };
+
+    utterance.onerror = (e) => {
+      console.error("SpeechSynthesis Error:", e);
+      // Restart cycle if it was a mobile interruption
+      if (isPlaying) setIsPlaying(false);
     };
 
     synth.speak(utterance);
@@ -258,7 +267,7 @@ IMPORTANTE: Devuelve ÚNICAMENTE un arreglo JSON válido como este:
             <div>
               <h3 className="font-bold text-lg text-foreground">Podcast Generativo</h3>
               <p className="text-secondary-foreground text-sm flex items-center gap-2">
-                <Headphones size={14} /> Selecciona o escribe un tema
+                <Headphones size={14} /> {voices.length > 0 ? "Voces listas ✅" : "Cargando voces..."}
               </p>
             </div>
           </div>
