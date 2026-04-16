@@ -102,6 +102,11 @@ export default function PodcastPlayer({ subjectId, onOpenNotebook }: { subjectId
     const topicToExplain = selectedTopic === "custom" ? customTopic : selectedTopic;
     if (!topicToExplain) return;
     
+    // CRITICAL: Unlock mobile audio engine by speaking synchronously on user click
+    const unlockUtterance = new SpeechSynthesisUtterance("");
+    unlockUtterance.volume = 0;
+    synth.speak(unlockUtterance);
+    
     setIsGenerating(true);
     setScript([]);
     synth.cancel();
@@ -163,28 +168,33 @@ IMPORTANTE: Devuelve ÚNICAMENTE un arreglo JSON válido como este:
     const line = script[index];
     const utterance = new SpeechSynthesisUtterance(line.text);
     
+    // Force reload voices horizontally in case mobile Safari dropped the async fetch
+    let activeVoices = voices.length > 0 ? voices : synth.getVoices();
+    
     // Filtro para asegurar voces femeninas
-    const esVoicesAvailable = voices.filter(v => v.lang.startsWith('es'));
-    const femaleNames = /dalia|salome|elena|helena|sabina|hilda|lucia|marta|paola|silvia|zaira|juana/i;
+    const esVoicesAvailable = activeVoices.filter(v => v.lang.startsWith('es'));
+    // Inclusive regex covering iOS/Android default female hispanic voices
+    const femaleNames = /paulina|monica|luciana|gloria|dalia|salome|elena|helena|sabina|hilda|lucia|marta|paola|silvia|zaira|juana|victoria|isabel/i;
     const latinVoices = esVoicesAvailable.filter(v => !v.lang.includes('ES') && !v.name.toLowerCase().includes('spain'));
     const finalSelection = latinVoices.length > 0 ? latinVoices : esVoicesAvailable; // Fallback solo si no hay NINGUNA latina
     
     // Ambas voces serán femeninas ya que son las disponibles en el sistema
-    const femaleVoices = finalSelection.filter(v => femaleNames.test(v.name) || (/female|mujer/i.test(v.name)));
+    const femaleVoices = finalSelection.filter(v => femaleNames.test(v.name) || (/female|mujer|woman/i.test(v.name)));
     
     // Lina (Voz Femenina 1)
-    const linaVoice = femaleVoices[0] || finalSelection[0];
+    const linaVoice = femaleVoices[0] || finalSelection[0] || activeVoices[0];
+    
     // Sofía (Mujer)
     let sofiaVoice;
     if (subjectId === "ingles") {
        // Si es inglés, buscar una voz nativa de Estados Unidos para Sofía
-       const usVoices = voices.filter(v => v.lang.includes('US') || v.lang.includes('GB'));
+       const usVoices = activeVoices.filter(v => v.lang.includes('US') || v.lang.includes('GB'));
        sofiaVoice = usVoices.find(v => femaleNames.test(v.name) && /neural|online/i.test(v.name))
                  || usVoices.find(v => femaleNames.test(v.name))
-                 || usVoices[0] || finalSelection[1] || voices[0];
+                 || usVoices[0] || finalSelection[1] || activeVoices[0];
        utterance.lang = "en-US"; // Cambiar el idioma de lectura a Inglés para Sofía
     } else {
-       sofiaVoice = femaleVoices[1] || femaleVoices[0] || finalSelection[1] || finalSelection[0];
+       sofiaVoice = femaleVoices[1] || femaleVoices[0] || finalSelection[1] || finalSelection[0] || activeVoices[0];
        utterance.lang = "es-MX";
     }
 
