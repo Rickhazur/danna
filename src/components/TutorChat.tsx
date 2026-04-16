@@ -259,7 +259,7 @@ const TutorChat = ({ subjectName, onBack }: TutorChatProps) => {
           </div>
         </div>
       </div>
-    </div>
+      
       {showWhiteboard && (
         <SmartWhiteboard 
           onClose={() => setShowWhiteboard(false)}
