@@ -304,9 +304,9 @@ IMPORTANTE: Devuelve ÚNICAMENTE un arreglo JSON válido como este:
             </Button>
           </div>
         ) : (
-          <div className="flex flex-col md:flex-row h-[28rem] divide-y md:divide-y-0 md:divide-x divide-border">
+          <div className="flex flex-col md:flex-row h-auto md:h-[28rem] divide-y md:divide-y-0 md:divide-x divide-border">
             {/* Panel Izquierdo: Pódcast y Controles */}
-            <div className="w-full md:w-1/2 flex flex-col">
+            <div className="w-full md:w-1/2 flex flex-col min-h-[400px] md:min-h-0">
               <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-muted/30">
                 {script.map((line, idx) => (
                   <div 
@@ -367,7 +367,7 @@ IMPORTANTE: Devuelve ÚNICAMENTE un arreglo JSON válido como este:
             </div>
 
             {/* Panel Derecho: Tablero Sincronizado IA */}
-            <div className="w-full md:w-1/2 bg-[#1a1f2b] p-6 relative overflow-hidden flex items-center justify-center border-l-8 border-[#2d3748]">
+            <div className="w-full md:w-1/2 bg-[#1a1f2b] p-6 relative overflow-hidden flex items-center justify-center border-l-8 border-transparent md:border-[#2d3748] min-h-[300px] md:min-h-0">
               <div className="absolute top-4 left-4 flex gap-2 items-center text-slate-400 opacity-70">
                 <PenTool size={16} />
                 <span className="text-xs font-mono uppercase tracking-widest">Tablero Inteligente</span>
