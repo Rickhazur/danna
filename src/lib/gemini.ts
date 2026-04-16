@@ -87,8 +87,21 @@ export async function generateChatResponse(messages: {role: "tutor" | "student" 
     // Usaremos generateContent pasándole todo el historial como parts en un solo array si es que hay una imagen en la última consulta.
     const lastMessage = geminiMessages[geminiMessages.length - 1];
     
+    let validHistory = geminiMessages.slice(0, -1);
+    
+    // Gemini stricly requires history to start with 'user'
+    if (validHistory.length > 0 && validHistory[0].role === 'model') {
+      validHistory = [{ role: 'user', parts: [{ text: 'Hola' }] }, ...validHistory];
+    }
+    
+    // Gemini strictly forbids images inside the conversational history array
+    validHistory = validHistory.map(msg => ({
+      ...msg,
+      parts: msg.parts.filter(p => !p.inlineData)
+    }));
+    
     const chat = model.startChat({
-      history: geminiMessages.slice(0, -1),
+      history: validHistory,
     });
     
     const result = await chat.sendMessage(lastMessage.parts);
