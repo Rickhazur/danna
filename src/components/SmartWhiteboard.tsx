@@ -11,50 +11,86 @@ const SmartWhiteboard = ({ onSave, onClose }: SmartWhiteboardProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
 
-  // Initialize canvas details
+  // Initialize canvas details and prevent mobile scrolling natively
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (canvas) {
+    if (!canvas) return;
+
+    const resizeCanvas = () => {
       const parent = canvas.parentElement;
       if (parent) {
-        // Adjust canvas size to parent container
+        const ctx = canvas.getContext('2d');
+        let imgData: ImageData | null = null;
+        if (ctx && canvas.width > 0) {
+          try { imgData = ctx.getImageData(0, 0, canvas.width, canvas.height); } catch(e) {}
+        }
+        
         canvas.width = parent.clientWidth;
         canvas.height = parent.clientHeight;
+        
+        if (ctx) {
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          if (imgData) {
+            ctx.putImageData(imgData, 0, 0);
+          }
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = 'black';
+        }
       }
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height); // white background
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = 'black';
-      }
-    }
+    };
+
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // This is the absolute key to fixing mobile drawing:
+    // React's synthetic touch events are passive by default, 
+    // so we must use native events to prevent the window from scrolling while drawing.
+    const preventScroll = (e: TouchEvent) => {
+      if (e.cancelable) e.preventDefault();
+    };
+    
+    // addEventListener with { passive: false } overrides default mobile scroll behavior
+    canvas.addEventListener('touchstart', preventScroll, { passive: false });
+    canvas.addEventListener('touchmove', preventScroll, { passive: false });
+
+    return () => {
+      window.removeEventListener('resize', resizeCanvas);
+      canvas.removeEventListener('touchstart', preventScroll);
+      canvas.removeEventListener('touchmove', preventScroll);
+    };
   }, []);
 
   const getCoordinates = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
     const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    let clientX = 0;
+    let clientY = 0;
+
     if ('touches' in e) {
-      return {
-        x: e.touches[0].clientX - rect.left,
-        y: e.touches[0].clientY - rect.top,
-      };
+      if (e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else if (e.changedTouches && e.changedTouches.length > 0) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+      }
     } else {
-      return {
-        x: (e as React.MouseEvent).clientX - rect.left,
-        y: (e as React.MouseEvent).clientY - rect.top,
-      };
+      clientX = (e as React.MouseEvent).clientX;
+      clientY = (e as React.MouseEvent).clientY;
     }
+
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
+    };
   };
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    // Prevent scrolling
-    if ('touches' in e && e.cancelable !== false) {
-       // React's synthetic events sometimes can't preventDefault if passive: true
-       // But we handle it via CSS touch-action: none.
-    }
-    
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
