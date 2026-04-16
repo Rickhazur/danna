@@ -86,20 +86,49 @@ export async function generateChatResponse(messages: {role: "tutor" | "student" 
     // Para simplificar y asegurar compatibilidad multimodal: 
     // Usaremos generateContent pasándole todo el historial como parts en un solo array si es que hay una imagen en la última consulta.
     const lastMessage = geminiMessages[geminiMessages.length - 1];
+    let rawHistory = geminiMessages.slice(0, -1);
     
-    let validHistory = geminiMessages.slice(0, -1);
+    // Gemini strict history requires:
+    // 1. Starts with user
+    // 2. strictly alternates user/model without repeats
+    // 3. no images in history
+    let validHistory: any[] = [];
     
-    // Gemini stricly requires history to start with 'user'
-    if (validHistory.length > 0 && validHistory[0].role === 'model') {
-      validHistory = [{ role: 'user', parts: [{ text: 'Hola' }] }, ...validHistory];
+    // Remove images from previous messages
+    rawHistory = rawHistory.map(msg => ({
+      role: msg.role,
+      parts: msg.parts.filter((p: any) => !p.inlineData)
+    }));
+
+    // Consolidate consecutive roles to enforce strict alternation
+    for (const msg of rawHistory) {
+      if (validHistory.length === 0) {
+        if (msg.role === 'model') {
+          validHistory.push({ role: 'user', parts: [{ text: 'Hola, empecemos.' }] });
+        }
+        if (msg.parts.length > 0 && msg.parts[0].text) {
+           validHistory.push(msg);
+        }
+      } else {
+        const last = validHistory[validHistory.length - 1];
+        if (last.role === msg.role) {
+           // Merge text parts of sequential identically-roled messages
+           if (msg.parts.length > 0 && msg.parts[0].text) {
+             last.parts[0].text += '\n\n' + msg.parts[0].text;
+           }
+        } else {
+           if (msg.parts.length > 0 && msg.parts[0].text) {
+             validHistory.push(msg);
+           }
+        }
+      }
     }
     
-    // Gemini strictly forbids images inside the conversational history array
-    validHistory = validHistory.map(msg => ({
-      ...msg,
-      parts: msg.parts.filter(p => !p.inlineData)
-    }));
-    
+    // Double check last message doesn't break alternation with the actual new message
+    if (validHistory.length > 0 && validHistory[validHistory.length - 1].role === lastMessage.role) {
+       validHistory.push({ role: lastMessage.role === 'user' ? 'model' : 'user', parts: [{ text: 'Continuemos.' }] });
+    }
+
     const chat = model.startChat({
       history: validHistory,
     });
@@ -107,7 +136,7 @@ export async function generateChatResponse(messages: {role: "tutor" | "student" 
     const result = await chat.sendMessage(lastMessage.parts);
     return result.response.text();
   } catch (error) {
-    console.warn("Gemini chat falló, intentando con DeepSeek...", error);
+    console.error("Gemini API Crash Detailed Error:", error);
     
     // Deepseek fallback uses standard OpenAI chat format
     try {
