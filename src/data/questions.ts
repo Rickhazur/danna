@@ -1,3 +1,5 @@
+import massiveQuestions from "./massive_questions.json";
+
 export interface Question {
   id: string;
   subject: string;
@@ -8,6 +10,7 @@ export interface Question {
   explanation: string;
   difficulty: "facil" | "medio" | "dificil";
   tip: string;
+  imageUrl?: string;
 }
 
 export const subjects = [
@@ -1311,8 +1314,8 @@ export const allQuestions: Question[] = [
     tip: "🏥 TRUCO ICFES INGLÉS: Vocabulario médico básico: headache = dolor de cabeza, stomachache = dolor de estómago, fever = fiebre, cough = tos, cold = resfriado. Estos salen mucho en diálogos del ICFES.",
     difficulty: "facil",
   },
+  ...(massiveQuestions as Question[])
 ];
-
 export const getQuestionsBySubject = (subjectId: string) =>
   allQuestions.filter((q) => q.subject === subjectId);
 

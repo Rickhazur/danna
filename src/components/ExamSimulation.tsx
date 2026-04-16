@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Question } from "@/data/questions";
 import { ArrowLeft, ArrowRight, Clock, CheckCircle2, XCircle, Trophy, BarChart3, Lightbulb } from "lucide-react";
+import LatexRenderer from "./LatexRenderer";
 
 interface ExamSimulationProps {
   questions: Question[];
@@ -171,7 +172,7 @@ const ExamSimulation = ({ questions, subjectName, timeMinutes, onBack, onFinish 
 
           <Card className="border-0 shadow-md">
             <CardContent className="p-5">
-              <p className="text-foreground leading-relaxed whitespace-pre-line">{rq.text}</p>
+              <LatexRenderer text={rq.text} className="text-foreground leading-relaxed whitespace-pre-line" />
             </CardContent>
           </Card>
 
@@ -188,7 +189,7 @@ const ExamSimulation = ({ questions, subjectName, timeMinutes, onBack, onFinish 
                     <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${isCorrectOpt ? 'bg-green-500 text-white' : isUserChoice ? 'bg-red-500 text-white' : 'bg-muted text-muted-foreground'}`}>
                       {isCorrectOpt ? <CheckCircle2 size={16} /> : isUserChoice ? <XCircle size={16} /> : opt.label}
                     </span>
-                    <span className="text-foreground pt-1">{opt.text}</span>
+                    <LatexRenderer text={opt.text} className="text-foreground pt-1" />
                   </div>
                 </div>
               );
@@ -201,8 +202,8 @@ const ExamSimulation = ({ questions, subjectName, timeMinutes, onBack, onFinish 
                 <Lightbulb className="text-primary shrink-0 mt-0.5" size={20} />
                 <div>
                   <p className="font-bold text-foreground mb-1">Explicación</p>
-                  <p className="text-sm text-foreground leading-relaxed">{rq.explanation}</p>
-                  {rq.tip && <p className="text-sm text-primary mt-2 font-semibold">{rq.tip}</p>}
+                  <LatexRenderer text={rq.explanation} className="text-sm text-foreground leading-relaxed" />
+                  {rq.tip && <LatexRenderer text={rq.tip} className="text-sm text-primary mt-2 font-semibold" />}
                 </div>
               </div>
             </CardContent>
@@ -262,8 +263,11 @@ const ExamSimulation = ({ questions, subjectName, timeMinutes, onBack, onFinish 
       {/* Question */}
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
         <Card className="border-0 shadow-md">
-          <CardContent className="p-5">
-            <p className="text-foreground leading-relaxed whitespace-pre-line">{question.text}</p>
+          <CardContent className="p-5 space-y-4">
+            {question.imageUrl && (
+              <img src={question.imageUrl} alt="Gráfica o contexto" className="w-full h-auto rounded-lg border border-border mb-2 shadow-sm max-h-[250px] object-contain bg-white p-2" />
+            )}
+            <LatexRenderer text={question.text} className="text-foreground leading-relaxed whitespace-pre-line" />
           </CardContent>
         </Card>
 
@@ -284,7 +288,7 @@ const ExamSimulation = ({ questions, subjectName, timeMinutes, onBack, onFinish 
                 }`}>
                   {opt.label}
                 </span>
-                <span className="text-foreground pt-1">{opt.text}</span>
+                <LatexRenderer text={opt.text} className="text-foreground pt-1" />
               </div>
             </button>
           ))}
